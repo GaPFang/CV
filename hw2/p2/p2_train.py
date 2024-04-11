@@ -7,6 +7,7 @@ from datetime import datetime
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
+from torch.utils.data import DataLoader, ConcatDataset
 
 from model import MyNet, ResNet18
 from dataset import get_dataloader
@@ -52,7 +53,42 @@ def plot_learning_curve(logfile_dir, result_lists):
     plt.savefig(os.path.join(logfile_dir, 'learning_curve.png'))
     plt.close()
 
-def train(model, train_loader, val_loader, logfile_dir, model_save_dir, criterion, optimizer, scheduler, device):
+def get_pseudo_labels(unlabel_loader, model, threshold=cfg.threshold_k):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # Make sure the model is in eval mode.
+    model.eval()
+    # Define softmax function.
+    softmax = nn.Softmax(dim=-1)
+
+    dataset = []
+
+    # Iterate over the dataset by batches.
+    for batch in unlabel_loader:
+        img = batch
+
+        # Forward the data
+        # Using torch.no_grad() accelerates the forward process.
+        with torch.no_grad():
+            logits = model(img.to(device))
+
+        # Obtain the probability distributions by applying softmax on logits.
+        probs = softmax(logits)
+
+        # Filter the data and construct a new dataset.
+        for i in range(len(probs)):
+            # Keep the data with a confidence value greater than the threshold.
+            if torch.max(probs[i]) > threshold:
+                dataset.append({
+                    'images': img[i],
+                    'labels': torch.argmax(probs[i]).item()
+                })
+
+    # # Turn off the eval mode.
+    model.train()
+    return dataset
+
+def train(model, train_loader, val_loader, unlabel_loader, logfile_dir, model_save_dir, criterion, optimizer, scheduler, device):
 
     train_loss_list, val_loss_list = [], []
     train_acc_list, val_acc_list = [], []
@@ -63,9 +99,19 @@ def train(model, train_loader, val_loader, logfile_dir, model_save_dir, criterio
         train_start_time = time.time()
         train_loss = 0.0
         train_correct = 0.0
+
+        # TODO: Semi-supervised learning using unlabel data
+        if epoch >= cfg.start_unlabel_epoch:
+            pseudo_dataset = get_pseudo_labels(unlabel_loader, model, threshold=cfg.threshold_k)
+            train_dataset = train_loader.dataset
+            concat_dataset = ConcatDataset([train_dataset, pseudo_dataset])
+            concat_loader = DataLoader(concat_dataset, batch_size=cfg.batch_size, shuffle=True, num_workers=2, pin_memory=True, drop_last=True)
+            print(f'[{epoch + 1}/{cfg.epochs}] New dataset size: {len(concat_dataset)}')
+        
+        new_loader = concat_loader if epoch >= cfg.start_unlabel_epoch else train_loader
         model.train()
-        for batch, data in enumerate(train_loader):
-            sys.stdout.write(f'\r[{epoch + 1}/{cfg.epochs}] Train batch: {batch + 1} / {len(train_loader)}')
+        for batch, data in enumerate(new_loader):
+            sys.stdout.write(f'\r[{epoch + 1}/{cfg.epochs}] Train batch: {batch + 1} / {len(new_loader)}')
             sys.stdout.flush()
             # Data loading.
             images, labels = data['images'].to(device), data['labels'].to(device) # (batch_size, 3, 32, 32), (batch_size)
@@ -82,8 +128,8 @@ def train(model, train_loader, val_loader, logfile_dir, model_save_dir, criterio
             train_loss += loss.item()
         # Print training result
         train_time = time.time() - train_start_time
-        train_acc = train_correct / len(train_loader.dataset)
-        train_loss /= len(train_loader)
+        train_acc = train_correct / len(new_loader.dataset)
+        train_loss /= len(new_loader)
         train_acc_list.append(train_acc)
         train_loss_list.append(train_loss)
         print()
@@ -120,7 +166,6 @@ def train(model, train_loader, val_loader, logfile_dir, model_save_dir, criterio
         val_loss /= len(val_loader)
         val_acc_list.append(val_acc)
         val_loss_list.append(val_loss)
-        print()
         print(f'[{epoch + 1}/{cfg.epochs}] {val_time:.2f} sec(s) Val Acc: {val_acc:.5f} | Val Loss: {val_loss:.5f}')
         
         # Scheduler step
@@ -189,6 +234,7 @@ def main():
     ##### TODO: check dataset.py #####
     train_loader = get_dataloader(os.path.join(dataset_dir, 'train'), batch_size=cfg.batch_size, split='train')
     val_loader   = get_dataloader(os.path.join(dataset_dir, 'val'), batch_size=cfg.batch_size, split='val')
+    unlabel_loader = get_dataloader(os.path.join(dataset_dir, 'unlabel'), batch_size=cfg.batch_size, split='unlabel')
 
     ##### LOSS & OPTIMIZER #####
     criterion = nn.CrossEntropyLoss()
@@ -203,6 +249,7 @@ def main():
     train(model          = model,
           train_loader   = train_loader,
           val_loader     = val_loader,
+          unlabel_loader = unlabel_loader,
           logfile_dir    = logfile_dir,
           model_save_dir = model_save_dir,
           criterion      = criterion,

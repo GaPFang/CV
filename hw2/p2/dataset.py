@@ -12,7 +12,7 @@ def get_dataloader(dataset_dir, batch_size=1, split='test'):
     # TODO:                       #
     # Define your own transforms. #
     ###############################
-    if split == 'train':
+    if split == 'train' or split == 'unlabel':
         transform = transforms.Compose([
             transforms.Resize((32,32)),
             ##### TODO: Data Augmentation Begin #####
@@ -76,7 +76,7 @@ class CIFAR10Dataset(Dataset):
 
         image = Image.open(os.path.join(self.dataset_dir, self.image_names[index]))
         image = self.transform(image)
-        if self.split != 'test':
+        if self.split != 'test' and self.split != 'unlabel':
             label = self.labels[index]
             return {
                 'images': image, 
