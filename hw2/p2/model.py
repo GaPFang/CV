@@ -12,7 +12,29 @@ class MyNet(nn.Module):
         # input channel is 3, and the output dimension is 10 (class).  #
         ################################################################
 
-        pass
+        self.cnn_layers = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+
+            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+
+            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2)
+        )
+
+        self.fc_layers = nn.Sequential(
+            nn.Linear(128*4*4, 512),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(512, 10)
+        )
 
     def forward(self, x):
 
@@ -21,7 +43,10 @@ class MyNet(nn.Module):
         # Define the forward path of your model. #
         ##########################################
 
-        pass
+        x = self.cnn_layers(x)
+        x = x.flatten(1)
+        x = self.fc_layers(x)
+        return x
     
 class ResNet18(nn.Module):
     def __init__(self):
