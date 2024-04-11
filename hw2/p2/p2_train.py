@@ -33,8 +33,24 @@ def plot_learning_curve(logfile_dir, result_lists):
     # plot being unsaved if early stop, so the result_lists's size #
     # is not fixed.                                                #
     ################################################################
-    
-    pass
+    plt.figure(figsize=(12, 4))
+    plt.subplot(1, 2, 1)
+    plt.plot(result_lists['train_acc'], label='train_acc')
+    plt.plot(result_lists['val_acc'], label='val_acc')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.legend()
+    plt.title('Accuracy')
+    plt.subplot(1, 2, 2)
+    plt.plot(result_lists['train_loss'], label='train_loss')
+    plt.plot(result_lists['val_loss'], label='val_loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.title('Loss')
+    plt.tight_layout()
+    plt.savefig(os.path.join(logfile_dir, 'learning_curve.png'))
+    plt.close()
 
 def train(model, train_loader, val_loader, logfile_dir, model_save_dir, criterion, optimizer, scheduler, device):
 
@@ -88,6 +104,13 @@ def train(model, train_loader, val_loader, logfile_dir, model_save_dir, criterio
             # You don't have to update parameters, just record the      #
             # accuracy and loss.                                        #
             #############################################################
+
+            for batch, data in enumerate(val_loader):
+                images, labels = data['images'].to(device), data['labels'].to(device)
+                pred = model(images)
+                loss = criterion(pred, labels)
+                val_correct += torch.sum(torch.argmax(pred, dim=1) == labels)
+                val_loss += loss.item()
             
             ######################### TODO End ##########################
 

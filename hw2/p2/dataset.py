@@ -16,6 +16,9 @@ def get_dataloader(dataset_dir, batch_size=1, split='test'):
         transform = transforms.Compose([
             transforms.Resize((32,32)),
             ##### TODO: Data Augmentation Begin #####
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(15),
+            transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
            
             ##### TODO: Data Augmentation End #####
             transforms.ToTensor(),
@@ -32,7 +35,7 @@ def get_dataloader(dataset_dir, batch_size=1, split='test'):
     dataset = CIFAR10Dataset(dataset_dir, split=split, transform=transform)
     if dataset[0] is None:
         raise NotImplementedError('No data found, check dataset.py and implement __getitem__() in CIFAR10Dataset class!')
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=(split=='train'), num_workers=0, pin_memory=True, drop_last=(split=='train'))
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=(split=='train'), num_workers=2, pin_memory=True, drop_last=(split=='train'))
 
     return dataloader
 
@@ -71,7 +74,16 @@ class CIFAR10Dataset(Dataset):
         # You will not have labels if it's test set            #
         ########################################################
 
-        pass
+        image = Image.open(os.path.join(self.dataset_dir, self.image_names[index]))
+        image = self.transform(image)
+        if self.split != 'test':
+            label = self.labels[index]
+            return {
+                'images': image, 
+                'labels': label
+            }
+        else:
+            return image
 
         # return {
         #     'images': image, 

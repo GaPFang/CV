@@ -16,3 +16,4 @@ batch_size = 32           # batch size for dataloader
 use_adam   = False        # Adam or SGD optimizer
 lr         = 1e-2         # learning rate
 milestones = [16, 32, 45] # reduce learning rate at 'milestones' epochs
+threshold_k  = 0.5        # threshold for semi-supervised learning
