@@ -41,6 +41,13 @@ def get_tiny_images(img_paths):
     #################################################################
 
     tiny_img_feats = []
+    for i in tqdm(range(len(img_paths))):
+        img = Image.open(img_paths[i])
+        img = img.resize((16, 16))
+        img = np.array(img)
+        img = img.flatten()
+        img = img / np.linalg.norm(img)
+        tiny_img_feats.append(img)
 
     #################################################################
     #                        END OF YOUR CODE                       #
@@ -97,12 +104,30 @@ def build_vocabulary(img_paths, vocab_size=400):
     # You are welcome to use your own SIFT feature                                   #
     ##################################################################################
 
+    sift_d = 128
+    vocab = np.zeros((1, sift_d))
+    print(len(img_paths))
+    random_idx = np.random.choice(len(img_paths), 1000, replace=False)
+    for i in tqdm(random_idx):
+        img = Image.open(img_paths[i])
+        img = np.array(img)
+        # _, des = dsift(img, step=[4, 4], fast=True)
+        # vocab = np.concatenate((vocab, des), axis=0)
+        # randomly sample the descriptors
+        _, des = dsift(img, step=[3, 3], fast=True)
+        idx = np.random.choice(des.shape[0], 60, replace=False)
+        des = des[idx]
+        vocab = np.concatenate((vocab, des), axis=0)
+    print("start kmeans")
+    vocab = kmeans(vocab, num_centers=vocab_size)
+    print("end kmeans")
+
     ##################################################################################
     #                                END OF YOUR CODE                                #
     ##################################################################################
     
     # return vocab
-    return None
+    return vocab
 
 ###### Step 1-b-2
 def get_bags_of_sifts(img_paths, vocab):
@@ -141,6 +166,15 @@ def get_bags_of_sifts(img_paths, vocab):
     ############################################################################
 
     img_feats = []
+    for i in tqdm(range(len(img_paths))):
+        img = Image.open(img_paths[i])
+        img = np.array(img)
+        _, des = dsift(img, step=[3, 3], fast=True)
+        dist = cdist(des, vocab)
+        min_idx = np.argmin(dist, axis=1)
+        hist, _ = np.histogram(min_idx, bins=len(vocab))
+        hist = hist / np.linalg.norm(hist)
+        img_feats.append(hist)
 
     ############################################################################
     #                                END OF YOUR CODE                          #
@@ -200,6 +234,17 @@ def nearest_neighbor_classify(train_img_feats, train_labels, test_img_feats):
     ###########################################################################
 
     test_predicts = []
+    for i in tqdm(range(len(test_img_feats))):
+        dist = cdist(test_img_feats[i].reshape(1, -1), train_img_feats, metric='minkowski', p=1.09)
+        min_idx = np.argsort(dist, axis=1)[0]
+        k = 5
+        k_idx = min_idx[:k]
+        k_labels = [train_labels[j] for j in k_idx]
+        k_labels = np.array(k_labels)
+        k_labels = np.unique(k_labels, return_counts=True)
+        max_idx = np.argmax(k_labels[1])
+        max_label = k_labels[0][max_idx]
+        test_predicts.append(max_label)
 
     ###########################################################################
     #                               END OF YOUR CODE                          #
