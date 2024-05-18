@@ -6,15 +6,15 @@ def computeDisp(Il, Ir, max_disp):
     labels = np.zeros((h, w), dtype=np.float32)
     Il = Il.astype(np.float32)
     Ir = Ir.astype(np.float32)
-    sigma_r, sigma_s, WMF_r = 3.5, 10, 10
+    sigma_r, sigma_s = 3.5, 10
 
     # >>> Cost Computation
     # TODO: Compute matching cost
     # [Tips] Census cost = Local binary pattern -> Hamming distance
     # [Tips] Set costs of out-of-bound pixels = cost of closest valid pixel  
     # [Tips] Compute cost both Il to Ir and Ir to Il for later left-right consistency
-    imgl = cv2.copyMakeBorder(Il, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=0)
-    imgr = cv2.copyMakeBorder(Ir, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=0)
+    imgl = cv2.copyMakeBorder(Il, 2, 2, 2, 2, cv2.BORDER_CONSTANT, value=0)
+    imgr = cv2.copyMakeBorder(Ir, 2, 2, 2, 2, cv2.BORDER_CONSTANT, value=0)
     
     census_left = np.zeros((*imgl.shape, 25))
     census_right = np.zeros((*imgr.shape, 25))
@@ -24,8 +24,8 @@ def computeDisp(Il, Ir, max_disp):
             census_left[:, :, :, index] = (imgl > np.roll(imgl, [i, j], axis=[0, 1])) * 1
             census_right[:, :, :, index] = (imgr > np.roll(imgr, [i, j], axis=[0, 1])) * 1
     
-    census_left = census_left[1:-1, 1:-1, :, :]
-    census_right = census_right[1:-1, 1:-1, :, :]
+    census_left = census_left[2:-2, 2:-2, :, :]
+    census_right = census_right[2:-2, 2:-2, :, :]
 
     # >>> Cost Aggregation
     # TODO: Refine the cost according to nearby costs
@@ -88,6 +88,11 @@ def computeDisp(Il, Ir, max_disp):
     labels = np.min((labels_left, labels_right), axis=0)
 
     # Weighted median filtering
-    labels = cv2.ximgproc.weightedMedianFilter(Il.astype(np.uint8), labels, WMF_r)
+    labels = cv2.ximgproc.weightedMedianFilter(Il.astype(np.uint8), labels, 10)
+    labels = cv2.ximgproc.weightedMedianFilter(Il.astype(np.uint8), labels, 8)
+    labels = cv2.ximgproc.weightedMedianFilter(Il.astype(np.uint8), labels, 5)
+    labels = cv2.ximgproc.weightedMedianFilter(Il.astype(np.uint8), labels, 5)
+    labels = cv2.ximgproc.weightedMedianFilter(Il.astype(np.uint8), labels, 5)
+    labels = cv2.ximgproc.weightedMedianFilter(Il.astype(np.uint8), labels, 3)
 
     return labels.astype(np.uint8)
