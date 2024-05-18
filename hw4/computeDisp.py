@@ -66,25 +66,17 @@ def computeDisp(Il, Ir, max_disp):
     labels_right = np.copy(disp_table)
 
     for y in range(h):
-        left_start = False
-        right_start = False
         for x in range(w):
-            # print(labels_left[y, x], left_start, end=' ')
             if labels_left[y, x] == 0:
-                if left_start:
+                if x != 0:
                     labels_left[y, x] = labels_left[y, x-1]
                 else:
                     labels_left[y, x] = max_disp
-            else:
-                left_start = True
-            # print(labels_right[y, x])
             if labels_right[y, w-x-1] == 0:
-                if right_start:
+                if x != 0:
                     labels_right[y, w-x-1] = labels_right[y, w-x]
                 else:
                     labels_right[y, w-x-1] = max_disp
-            else:
-                right_start = True
     labels = np.min((labels_left, labels_right), axis=0)
 
     # Weighted median filtering
